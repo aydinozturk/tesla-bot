@@ -25,7 +25,7 @@ public class TeslaInventoryBot {
     private final PushoverNotifier pushoverNotifier;
     private final ScheduledExecutorService scheduler;
 
-    private static final String TESLA_API_URL = "https://www.tesla.com/coinorder/api/v4/inventory-results?query=%7B%22query%22%3A%7B%22model%22%3A%22my%22%2C%22condition%22%3A%22new%22%2C%22options%22%3A%7B%7D%2C%22arrangeby%22%3A%22Price%22%2C%22order%22%3A%22asc%22%2C%22market%22%3A%22TR%22%2C%22language%22%3A%22tr%22%2C%22super_region%22%3A%22north%20america%22%2C%22lng%22%3A%22%22%2C%22lat%22%3A%22%22%2C%22zip%22%3A%22%22%2C%22range%22%3A0%7D%2C%22offset%22%3A0%2C%22count%22%3A24%2C%22outsideOffset%22%3A0%2C%22outsideSearch%22%3Afalse%2C%22isFalconDeliverySelectionEnabled%22%3Atrue%2C%22version%22%3A%22v2%22%7D";
+    private static final String TESLA_API_BASE_URL = "https://www.tesla.com/coinorder/api/v4/inventory-results";
 
     private int lastTotalMatches = 0;
     private boolean isErrorState = false;
@@ -104,12 +104,39 @@ public class TeslaInventoryBot {
         }
     }
 
+    private String buildTeslaApiUrl() {
+        String market = System.getenv("TESLA_MARKET");
+        String language = System.getenv("TESLA_LANGUAGE");
+
+        // Varsayılan değerler
+        if (market == null || market.isEmpty()) {
+            market = "DE";
+        }
+        if (language == null || language.isEmpty()) {
+            language = "de";
+        }
+
+        // Super region belirleme
+        String superRegion = "europe";
+        if ("US".equals(market) || "CA".equals(market)) {
+            superRegion = "north america";
+        }
+
+        String query = String.format(
+                "{\"query\":{\"model\":\"my\",\"condition\":\"new\",\"options\":{},\"arrangeby\":\"Price\",\"order\":\"asc\",\"market\":\"%s\",\"language\":\"%s\",\"super_region\":\"%s\",\"lng\":\"\",\"lat\":\"\",\"zip\":\"\",\"range\":0},\"offset\":0,\"count\":24,\"outsideOffset\":0,\"outsideSearch\":false,\"isFalconDeliverySelectionEnabled\":true,\"version\":\"v2\"}",
+                market, language, superRegion);
+
+        return TESLA_API_BASE_URL + "?query="
+                + java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     private void checkInventory() {
         try {
-            logger.debug("Tesla envanter kontrol ediliyor...");
+            logger.info("Tesla envanter kontrol ediliyor...");
 
+            String apiUrl = buildTeslaApiUrl();
             Request request = new Request.Builder()
-                    .url(TESLA_API_URL)
+                    .url(apiUrl)
                     .addHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
                     .addHeader("Accept", "application/json")
                     .build();
@@ -124,11 +151,21 @@ public class TeslaInventoryBot {
                 JsonNode jsonNode = objectMapper.readTree(responseBody);
 
                 int totalMatches = jsonNode.path("total_matches_found").asInt();
-                JsonNode exactResults = jsonNode.path("results").path("exact");
-                JsonNode approximateResults = jsonNode.path("results").path("approximate");
+                JsonNode results = jsonNode.path("results");
 
-                logger.debug("Toplam eşleşme: {}, Exact: {}, Approximate: {}",
-                        totalMatches, exactResults.size(), approximateResults.size());
+                // results bir array ise doğrudan kullan, değilse exact/approximate alt
+                // yollarını dene
+                int resultsCount = 0;
+                if (results.isArray()) {
+                    resultsCount = results.size();
+                    logger.info("Toplam eşleşme: {}, Results (array): {}", totalMatches, resultsCount);
+                } else {
+                    JsonNode exactResults = results.path("exact");
+                    JsonNode approximateResults = results.path("approximate");
+                    resultsCount = exactResults.size() + approximateResults.size();
+                    logger.info("Toplam eşleşme: {}, Exact: {}, Approximate: {}",
+                            totalMatches, exactResults.size(), approximateResults.size());
+                }
 
                 // Hata durumunu temizle
                 if (isErrorState) {
@@ -140,18 +177,63 @@ public class TeslaInventoryBot {
                 // Yeni araç geldi mi kontrol et
                 if (totalMatches > lastTotalMatches && lastTotalMatches > 0) {
                     int newCars = totalMatches - lastTotalMatches;
-                    String message = String.format("🎉 Tesla envanterinde %d yeni araç bulundu! " +
-                            "Toplam: %d araç", newCars, totalMatches);
+                    StringBuilder message = new StringBuilder();
+                    message.append(String.format("🎉 Tesla envanterinde %d yeni araç bulundu!\n", newCars));
+                    message.append(String.format("Toplam: %d araç\n\n", totalMatches));
 
-                    pushoverNotifier.sendNotification("Tesla Envanter Güncellemesi", message);
-                    logger.info("Yeni araç bildirimi gönderildi: {}", message);
+                    // Yeni araçların VIN linklerini ekle
+                    if (results.isArray() && results.size() > 0) {
+                        message.append("🔗 Yeni Araç Linkleri:\n");
+                        int maxCars = Math.min(results.size(), 5); // En fazla 5 araç göster
+
+                        for (int i = 0; i < maxCars; i++) {
+                            JsonNode car = results.get(i);
+                            String vin = car.path("VIN").asText();
+                            if (vin != null && !vin.isEmpty()) {
+                                String carLink = String.format(
+                                        "https://www.tesla.com/de_DE/my/order/%s?titleStatus=new&redirect=no#overview",
+                                        vin);
+                                message.append(String.format("%d. %s\n", i + 1, carLink));
+                            }
+                        }
+
+                        if (results.size() > 5) {
+                            message.append(String.format("... ve %d araç daha\n", results.size() - 5));
+                        }
+                    }
+
+                    pushoverNotifier.sendNotification("Tesla Envanter Güncellemesi", message.toString());
+                    logger.info("Yeni araç bildirimi gönderildi");
                 }
 
                 // İlk çalıştırma veya araç sayısı değişti
                 if (lastTotalMatches == 0 && totalMatches > 0) {
-                    String message = String.format("📊 Tesla envanterinde %d araç bulundu", totalMatches);
-                    pushoverNotifier.sendNotification("Tesla Envanter Durumu", message);
-                    logger.info("İlk envanter durumu bildirimi: {}", message);
+                    StringBuilder message = new StringBuilder();
+                    message.append(String.format("📊 Tesla envanterinde %d araç bulundu\n\n", totalMatches));
+
+                    // İlk 5 aracın VIN linklerini ekle
+                    if (results.isArray() && results.size() > 0) {
+                        message.append("🔗 Araç Linkleri:\n");
+                        int maxCars = Math.min(results.size(), 5); // En fazla 5 araç göster
+
+                        for (int i = 0; i < maxCars; i++) {
+                            JsonNode car = results.get(i);
+                            String vin = car.path("VIN").asText();
+                            if (vin != null && !vin.isEmpty()) {
+                                String carLink = String.format(
+                                        "https://www.tesla.com/de_DE/my/order/%s?titleStatus=new&redirect=no#overview",
+                                        vin);
+                                message.append(String.format("%d. %s\n", i + 1, carLink));
+                            }
+                        }
+
+                        if (results.size() > 5) {
+                            message.append(String.format("... ve %d araç daha\n", results.size() - 5));
+                        }
+                    }
+
+                    pushoverNotifier.sendNotification("Tesla Envanter Durumu", message.toString());
+                    logger.info("İlk envanter durumu bildirimi gönderildi");
                 }
 
                 lastTotalMatches = totalMatches;
