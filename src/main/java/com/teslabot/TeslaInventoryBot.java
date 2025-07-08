@@ -10,11 +10,16 @@ import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -34,29 +39,60 @@ public class TeslaInventoryBot {
     private LocalDateTime lastErrorTime = null;
     private static final int ERROR_NOTIFICATION_INTERVAL_MINUTES = 30;
 
+    private List<String> proxyList = new ArrayList<>();
+    private final Random random = new Random();
+
     public TeslaInventoryBot() {
-        this.httpClient = new OkHttpClient.Builder()
+        this.objectMapper = new ObjectMapper();
+        this.pushoverNotifier = new PushoverNotifier();
+        this.scheduler = Executors.newScheduledThreadPool(1);
+        loadProxyList();
+        this.httpClient = null; // Artık kullanılmayacak, her istekte yeni client oluşturulacak
+    }
+
+    private void loadProxyList() {
+        try (BufferedReader br = new BufferedReader(new FileReader("proxy-list.txt"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (!line.isEmpty() && line.contains(":")) {
+                    proxyList.add(line);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Proxy listesi yüklenemedi: {}", e.getMessage());
+        }
+    }
+
+    private Proxy getRandomProxy() {
+        if (proxyList.isEmpty())
+            return Proxy.NO_PROXY;
+        String proxyStr = proxyList.get(random.nextInt(proxyList.size()));
+        String[] parts = proxyStr.split(":");
+        String host = parts[0];
+        int port = Integer.parseInt(parts[1]);
+        return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(host, port));
+    }
+
+    private OkHttpClient buildHttpClientWithProxy(Proxy proxy) {
+        return new OkHttpClient.Builder()
                 .connectTimeout(60, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
                 .writeTimeout(60, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .protocols(java.util.Arrays.asList(Protocol.HTTP_1_1))
+                .proxy(proxy)
                 .cookieJar(new okhttp3.CookieJar() {
                     @Override
                     public void saveFromResponse(okhttp3.HttpUrl url, List<okhttp3.Cookie> cookies) {
-                        // Cookie'leri kaydetme - her istek için temiz başla
                     }
 
                     @Override
                     public List<okhttp3.Cookie> loadForRequest(okhttp3.HttpUrl url) {
-                        // Boş cookie listesi döndür - her istek için temiz başla
                         return new ArrayList<>();
                     }
                 })
                 .build();
-        this.objectMapper = new ObjectMapper();
-        this.pushoverNotifier = new PushoverNotifier();
-        this.scheduler = Executors.newScheduledThreadPool(1);
     }
 
     public void start() {
@@ -143,11 +179,33 @@ public class TeslaInventoryBot {
                 + java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8);
     }
 
+    private String buildTeslaCarLink(String vin) {
+        String market = System.getenv("TESLA_MARKET");
+        String language = System.getenv("TESLA_LANGUAGE");
+
+        // Varsayılan değerler
+        if (market == null || market.isEmpty()) {
+            market = "DE";
+        }
+        if (language == null || language.isEmpty()) {
+            language = "de";
+        }
+
+        // Market ve language'i birleştir (örn: DE + de = de_DE)
+        String locale = language.toLowerCase() + "_" + market.toUpperCase();
+
+        return String.format(
+                "https://www.tesla.com/%s/my/order/%s?titleStatus=new&redirect=no#overview",
+                locale, vin);
+    }
+
     private void checkInventory() {
         try {
             logger.info("Tesla envanter kontrol ediliyor...");
 
             String apiUrl = buildTeslaApiUrl();
+            Proxy proxy = getRandomProxy();
+            OkHttpClient httpClient = buildHttpClientWithProxy(proxy);
             Request request = new Request.Builder()
                     .url(apiUrl)
                     .addHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
@@ -188,7 +246,7 @@ public class TeslaInventoryBot {
                 }
 
                 // Yeni araç geldi mi kontrol et
-                if (totalMatches > lastTotalMatches && lastTotalMatches > 0) {
+                if (totalMatches != lastTotalMatches && lastTotalMatches > 0) {
                     int newCars = totalMatches - lastTotalMatches;
                     StringBuilder message = new StringBuilder();
                     message.append(String.format("🎉 Tesla envanterinde %d yeni araç bulundu!\n", newCars));
@@ -196,22 +254,24 @@ public class TeslaInventoryBot {
 
                     // Yeni araçların VIN linklerini ekle
                     if (results.isArray() && results.size() > 0) {
-                        message.append("🔗 Yeni Araç Linkleri:\n");
-                        int maxCars = Math.min(results.size(), 5); // En fazla 5 araç göster
-
-                        for (int i = 0; i < maxCars; i++) {
-                            JsonNode car = results.get(i);
-                            String vin = car.path("VIN").asText();
-                            if (vin != null && !vin.isEmpty()) {
-                                String carLink = String.format(
-                                        "https://www.tesla.com/de_DE/my/order/%s?titleStatus=new&redirect=no#overview",
-                                        vin);
-                                message.append(String.format("%d. %s\n", i + 1, carLink));
+                        int totalCars = results.size();
+                        int groupSize = 5;
+                        int groupCount = (int) Math.ceil((double) totalCars / groupSize);
+                        for (int group = 0; group < groupCount; group++) {
+                            StringBuilder groupMessage = new StringBuilder();
+                            groupMessage
+                                    .append(String.format("🔗 Yeni Araç Linkleri (%d/%d):\n", group + 1, groupCount));
+                            int start = group * groupSize;
+                            int end = Math.min(start + groupSize, totalCars);
+                            for (int i = start; i < end; i++) {
+                                JsonNode car = results.get(i);
+                                String vin = car.path("VIN").asText();
+                                if (vin != null && !vin.isEmpty()) {
+                                    String carLink = buildTeslaCarLink(vin);
+                                    groupMessage.append(String.format("%d. %s\n", i + 1, carLink));
+                                }
                             }
-                        }
-
-                        if (results.size() > 5) {
-                            message.append(String.format("... ve %d araç daha\n", results.size() - 5));
+                            pushoverNotifier.sendNotification("Tesla Envanter Güncellemesi", groupMessage.toString());
                         }
                     }
 
@@ -226,22 +286,23 @@ public class TeslaInventoryBot {
 
                     // İlk 5 aracın VIN linklerini ekle
                     if (results.isArray() && results.size() > 0) {
-                        message.append("🔗 Araç Linkleri:\n");
-                        int maxCars = Math.min(results.size(), 5); // En fazla 5 araç göster
-
-                        for (int i = 0; i < maxCars; i++) {
-                            JsonNode car = results.get(i);
-                            String vin = car.path("VIN").asText();
-                            if (vin != null && !vin.isEmpty()) {
-                                String carLink = String.format(
-                                        "https://www.tesla.com/de_DE/my/order/%s?titleStatus=new&redirect=no#overview",
-                                        vin);
-                                message.append(String.format("%d. %s\n", i + 1, carLink));
+                        int totalCars = results.size();
+                        int groupSize = 5;
+                        int groupCount = (int) Math.ceil((double) totalCars / groupSize);
+                        for (int group = 0; group < groupCount; group++) {
+                            StringBuilder groupMessage = new StringBuilder();
+                            groupMessage.append(String.format("🔗 Araç Linkleri (%d/%d):\n", group + 1, groupCount));
+                            int start = group * groupSize;
+                            int end = Math.min(start + groupSize, totalCars);
+                            for (int i = start; i < end; i++) {
+                                JsonNode car = results.get(i);
+                                String vin = car.path("VIN").asText();
+                                if (vin != null && !vin.isEmpty()) {
+                                    String carLink = buildTeslaCarLink(vin);
+                                    groupMessage.append(String.format("%d. %s\n", i + 1, carLink));
+                                }
                             }
-                        }
-
-                        if (results.size() > 5) {
-                            message.append(String.format("... ve %d araç daha\n", results.size() - 5));
+                            pushoverNotifier.sendNotification("Tesla Envanter Durumu", groupMessage.toString());
                         }
                     }
 

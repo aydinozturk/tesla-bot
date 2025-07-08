@@ -24,6 +24,7 @@ RUN ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime && \
 RUN mkdir -p logs && chmod 755 logs
 
 COPY --from=builder /build/target/tesla-inventory-bot-1.0.0.jar ./tesla-bot.jar
+COPY proxy-list.txt proxy-list.txt
 
 ENV PUSHOVER_USER_KEY=""
 ENV PUSHOVER_APP_TOKEN=""
