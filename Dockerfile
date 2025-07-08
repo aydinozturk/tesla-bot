@@ -1,0 +1,34 @@
+# Build stage
+FROM maven:3.9.6-eclipse-temurin-11 AS builder
+
+WORKDIR /build
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+COPY src ./src
+RUN mvn clean package -DskipTests
+
+# Runtime stage
+FROM eclipse-temurin:11-jre
+
+LABEL maintainer="aydinozturk"
+LABEL description="Tesla Inventory Monitoring Bot"
+LABEL version="1.0.0"
+LABEL org.opencontainers.image.source="https://github.com/aydinozturk/tesla-bot"
+
+WORKDIR /app
+
+# Timezone ayarla
+RUN ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime && \
+    echo "Europe/Istanbul" > /etc/timezone
+
+RUN mkdir -p logs && chmod 755 logs
+
+COPY --from=builder /build/target/tesla-inventory-bot-1.0.0.jar ./tesla-bot.jar
+
+ENV PUSHOVER_USER_KEY=""
+ENV PUSHOVER_APP_TOKEN=""
+ENV JAVA_OPTS="-Xmx512m -Xms256m"
+
+USER root
+
+CMD ["java", "-jar", "tesla-bot.jar"] 
