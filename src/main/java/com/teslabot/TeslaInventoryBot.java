@@ -13,6 +13,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -38,8 +40,19 @@ public class TeslaInventoryBot {
                 .readTimeout(60, TimeUnit.SECONDS)
                 .writeTimeout(60, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
-                .protocols(java.util.Arrays.asList(Protocol.HTTP_1_1)) // HTTP/2 sorunlarını önle
-                .connectionPool(new ConnectionPool(5, 5, TimeUnit.MINUTES)) // Bağlantı havuzu
+                .protocols(java.util.Arrays.asList(Protocol.HTTP_1_1))
+                .cookieJar(new okhttp3.CookieJar() {
+                    @Override
+                    public void saveFromResponse(okhttp3.HttpUrl url, List<okhttp3.Cookie> cookies) {
+                        // Cookie'leri kaydetme - her istek için temiz başla
+                    }
+
+                    @Override
+                    public List<okhttp3.Cookie> loadForRequest(okhttp3.HttpUrl url) {
+                        // Boş cookie listesi döndür - her istek için temiz başla
+                        return new ArrayList<>();
+                    }
+                })
                 .build();
         this.objectMapper = new ObjectMapper();
         this.pushoverNotifier = new PushoverNotifier();
