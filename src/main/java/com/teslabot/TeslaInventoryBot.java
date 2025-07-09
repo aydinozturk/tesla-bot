@@ -106,10 +106,10 @@ public class TeslaInventoryBot {
             // İlk kontrolü hemen yap
             checkInventory();
 
-            // Her dakika kontrol et
-            scheduler.scheduleAtFixedRate(this::checkInventory, 1, 1, TimeUnit.MINUTES);
+            // Her 10 saniye kontrol et
+            scheduler.scheduleAtFixedRate(this::checkInventory, 10, 10, TimeUnit.SECONDS);
 
-            logger.info("Bot başlatıldı. Her dakika Tesla envanteri kontrol edilecek.");
+            logger.info("Bot başlatıldı. Her 10 saniye Tesla envanteri kontrol edilecek.");
 
         } catch (Exception e) {
             logger.error("Bot başlatılırken hata oluştu: {}", e.getMessage());
