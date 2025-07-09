@@ -26,8 +26,8 @@ RUN mkdir -p logs && chmod 755 logs
 COPY --from=builder /build/target/tesla-inventory-bot-1.0.0.jar ./tesla-bot.jar
 COPY proxy-list.txt proxy-list.txt
 
-ENV PUSHOVER_USER_KEY=""
-ENV PUSHOVER_APP_TOKEN=""
+ENV TELEGRAM_BOT_TOKEN=""
+ENV TELEGRAM_CHAT_ID=""
 ENV JAVA_OPTS="-Xmx512m -Xms256m"
 
 USER root

@@ -1,15 +1,15 @@
 # 🚗 Tesla Inventory Monitoring Bot
 
-A real-time Tesla inventory monitoring bot that checks Tesla's official inventory API at regular intervals and sends notifications via Pushover when new vehicles are available or when errors occur.
+A real-time Tesla inventory monitoring bot that checks Tesla's official inventory API at regular intervals and sends notifications via Telegram when new vehicles are available or when errors occur.
 
 ## ✨ Features
 
 - 🕐 **Real-time monitoring** - Checks Tesla inventory every minute
-- 📱 **Pushover notifications** - Instant notifications for new vehicles and errors
+- 📱 **Telegram notifications** - Instant notifications for new vehicles and errors
 - 🔗 **VIN Links** - Direct links to Tesla order pages for each vehicle
 - 🌍 **Multi-market support** - Easy configuration for different countries
 - 🔄 **Proxy rotation** - Random proxy selection for each request
-- 📦 **Grouped notifications** - Sends all inventory items in groups of 5
+- 📦 **Detailed notifications** - Sends detailed information for each vehicle individually
 - ⚠️ **Smart error handling** - First error and 30-minute continuous error notifications
 - 🔄 **Automatic retry** - Automatic retry on connection issues
 - 📊 **Detailed logging** - All operations are logged and stored
@@ -23,14 +23,15 @@ A real-time Tesla inventory monitoring bot that checks Tesla's official inventor
 
 - Java 11 or higher
 - Maven 3.6+
-- Pushover account
+- Telegram Bot Token
 - `proxy-list.txt` file with proxy servers
 
-### 1. Pushover Setup
+### 1. Telegram Bot Setup
 
-1. Go to [Pushover](https://pushover.net/) and create an account
-2. Create an application and get API token
-3. Note your user key
+1. Message [@BotFather](https://t.me/botfather) on Telegram
+2. Create a new bot with `/newbot` command
+3. Get your bot token
+4. Start a chat with your bot and get your chat ID
 
 ### 2. Proxy List Setup
 
@@ -46,9 +47,9 @@ Create a `proxy-list.txt` file in the project root with proxy servers (one per l
 ### 3. Environment Variables
 
 ```bash
-# Required - Pushover notifications
-export PUSHOVER_USER_KEY="your_user_key_here"
-export PUSHOVER_APP_TOKEN="your_app_token_here"
+# Required - Telegram notifications
+export TELEGRAM_BOT_TOKEN="your_bot_token_here"
+export TELEGRAM_CHAT_ID="your_chat_id_here"
 
 # Optional - Tesla market settings (default: DE/de)
 export TESLA_MARKET="DE"      # Country code (DE, TR, US, CA, etc.)
@@ -84,47 +85,32 @@ When the bot starts:
 4. Sends notifications on API errors
 5. Sends repeat notifications after 30 minutes of continuous errors
 6. Uses random proxy for each request
-7. Groups all inventory items in batches of 5 for notifications
+7. Sends detailed information for each vehicle individually
 
 ### Notification Types
 
-#### 🎉 New Vehicle Notification (with VIN Links)
+#### 🎉 New Vehicle Notification (Sample)
 
 ```
-🎉 3 new vehicles found in Tesla inventory!
-Total: 15 vehicles
+2025 my Model Y Long Range Rear-Wheel Drive
+Fiyat: 53935 EUR
+VIN: XP7Y218_0343fa7c0c704d2f48e0a38f4b0b47e1
+Renk: WHITE
+İç Mekan: PREMIUM_WHITE
 
-🔗 New Vehicle Links (1/3):
-1. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123456?titleStatus=new&redirect=no#overview
-2. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123457?titleStatus=new&redirect=no#overview
-3. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123458?titleStatus=new&redirect=no#overview
-4. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123459?titleStatus=new&redirect=no#overview
-5. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123460?titleStatus=new&redirect=no#overview
-
-🔗 New Vehicle Links (2/3):
-6. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123461?titleStatus=new&redirect=no#overview
-7. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123462?titleStatus=new&redirect=no#overview
-8. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123463?titleStatus=new&redirect=no#overview
-9. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123464?titleStatus=new&redirect=no#overview
-10. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123465?titleStatus=new&redirect=no#overview
-
-🔗 New Vehicle Links (3/3):
-11. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123466?titleStatus=new&redirect=no#overview
-12. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123467?titleStatus=new&redirect=no#overview
-13. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123468?titleStatus=new&redirect=no#overview
+Tesla'da Görüntüle: https://www.tesla.com/...
 ```
 
 #### 📊 Initial Inventory Status
 
 ```
-📊 272 vehicles found in Tesla inventory
+2025 my Model Y Long Range Rear-Wheel Drive
+Fiyat: 53935 EUR
+VIN: XP7Y218_0343fa7c0c704d2f48e0a38f4b0b47e1
+Renk: WHITE
+İç Mekan: PREMIUM_WHITE
 
-🔗 Vehicle Links (1/55):
-1. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123456?titleStatus=new&redirect=no#overview
-2. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123457?titleStatus=new&redirect=no#overview
-3. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123458?titleStatus=new&redirect=no#overview
-4. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123459?titleStatus=new&redirect=no#overview
-5. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123460?titleStatus=new&redirect=no#overview
+Tesla'da Görüntüle: https://www.tesla.com/...
 ```
 
 #### ❌ First Error Notification
@@ -187,8 +173,8 @@ export TESLA_MARKET="GB" && export TESLA_LANGUAGE="en"
 # Pull and run from Docker Hub
 docker run -d \
   --name tesla-bot \
-  -e PUSHOVER_USER_KEY="your_user_key" \
-  -e PUSHOVER_APP_TOKEN="your_app_token" \
+  -e TELEGRAM_BOT_TOKEN="your_bot_token" \
+  -e TELEGRAM_CHAT_ID="your_chat_id" \
   -e TESLA_MARKET="TR" \
   -e TESLA_LANGUAGE="tr" \
   aydinozturk/tesla-inventory-bot:latest
@@ -203,8 +189,8 @@ services:
     image: aydinozturk/tesla-inventory-bot:latest
     container_name: tesla-inventory-bot
     environment:
-      - PUSHOVER_USER_KEY=your_user_key
-      - PUSHOVER_APP_TOKEN=your_app_token
+      - TELEGRAM_BOT_TOKEN=your_bot_token
+      - TELEGRAM_CHAT_ID=your_chat_id
       - TESLA_MARKET=TR
       - TESLA_LANGUAGE=tr
     volumes:
@@ -229,8 +215,8 @@ docker build -t tesla-inventory-bot .
 # Run container
 docker run -d \
   --name tesla-bot \
-  -e PUSHOVER_USER_KEY="your_user_key" \
-  -e PUSHOVER_APP_TOKEN="your_app_token" \
+  -e TELEGRAM_BOT_TOKEN="your_bot_token" \
+  -e TELEGRAM_CHAT_ID="your_chat_id" \
   -e TESLA_MARKET="DE" \
   -e TESLA_LANGUAGE="de" \
   -v $(pwd)/logs:/app/logs \
@@ -243,8 +229,8 @@ docker run -d \
 
 | Variable             | Description         | Required | Default |
 | -------------------- | ------------------- | -------- | ------- |
-| `PUSHOVER_USER_KEY`  | Pushover user key   | ✅       | -       |
-| `PUSHOVER_APP_TOKEN` | Pushover app token  | ✅       | -       |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token  | ✅       | -       |
+| `TELEGRAM_CHAT_ID`   | Telegram chat id    | ✅       | -       |
 | `TESLA_MARKET`       | Tesla market code   | ❌       | `DE`    |
 | `TESLA_LANGUAGE`     | Tesla language code | ❌       | `de`    |
 
@@ -269,7 +255,6 @@ Example `proxy-list.txt`:
 ### API Endpoints
 
 - **Tesla Inventory API**: `https://www.tesla.com/coinorder/api/v4/inventory-results`
-- **Pushover API**: `https://api.pushover.net/1/messages.json`
 
 ### Request Headers
 
@@ -297,57 +282,3 @@ mvn clean package
 # Run tests
 mvn test
 ```
-
-### Project Structure
-
-```
-tesla-bot/
-├── src/main/java/com/teslabot/
-│   ├── TeslaInventoryBot.java    # Main bot logic
-│   └── PushoverNotifier.java     # Pushover notification service
-├── src/main/resources/
-│   └── logback.xml               # Logging configuration
-├── proxy-list.txt                # Proxy server list
-├── docker-compose.yml            # Docker Compose configuration
-├── Dockerfile                    # Docker image definition
-├── pom.xml                       # Maven dependencies
-└── start.sh                      # Startup script
-```
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-
-1. Check the logs in `logs/tesla-bot.log`
-2. Verify your environment variables are set correctly
-3. Ensure your `proxy-list.txt` file is properly formatted
-4. Open an issue on GitHub with detailed error information
-
-## 🔄 Changelog
-
-### v1.0.0
-
-- Initial release with basic inventory monitoring
-- Pushover notifications
-- Multi-market support
-- Docker support
-
-### v1.1.0
-
-- Added proxy rotation support
-- Dynamic URL generation for car links
-- Grouped notifications (5 items per message)
-- Notifications for both inventory increases and decreases
-- Improved error handling and logging

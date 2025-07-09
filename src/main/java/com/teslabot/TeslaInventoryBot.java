@@ -29,7 +29,7 @@ public class TeslaInventoryBot {
 
     private final OkHttpClient httpClient;
     private final ObjectMapper objectMapper;
-    private final PushoverNotifier pushoverNotifier;
+    private final TelegramNotifier telegramNotifier;
     private final ScheduledExecutorService scheduler;
 
     private static final String TESLA_API_BASE_URL = "https://www.tesla.com/coinorder/api/v4/inventory-results";
@@ -44,7 +44,7 @@ public class TeslaInventoryBot {
 
     public TeslaInventoryBot() {
         this.objectMapper = new ObjectMapper();
-        this.pushoverNotifier = new PushoverNotifier();
+        this.telegramNotifier = new TelegramNotifier();
         this.scheduler = Executors.newScheduledThreadPool(1);
         loadProxyList();
         this.httpClient = null; // Artık kullanılmayacak, her istekte yeni client oluşturulacak
@@ -100,7 +100,7 @@ public class TeslaInventoryBot {
 
         try {
             // Bot başlatma bildirimi gönder
-            pushoverNotifier.sendNotification("Tesla Bot Başlatıldı",
+            telegramNotifier.sendNotification("Tesla Bot Başlatıldı",
                     "🚀 Tesla Envanter Bot başarıyla başlatıldı ve çalışıyor.");
 
             // İlk kontrolü hemen yap
@@ -113,7 +113,7 @@ public class TeslaInventoryBot {
 
         } catch (Exception e) {
             logger.error("Bot başlatılırken hata oluştu: {}", e.getMessage());
-            pushoverNotifier.sendErrorNotification("Tesla Bot Başlatma Hatası",
+            telegramNotifier.sendErrorNotification("Tesla Bot Başlatma Hatası",
                     "❌ Bot başlatılırken hata oluştu: " + e.getMessage());
             throw e;
         }
@@ -124,7 +124,7 @@ public class TeslaInventoryBot {
 
         try {
             // Bot kapatma bildirimi gönder
-            pushoverNotifier.sendNotification("Tesla Bot Durduruldu",
+            telegramNotifier.sendNotification("Tesla Bot Durduruldu",
                     "🛑 Tesla Envanter Bot durduruldu.");
 
             scheduler.shutdown();
@@ -145,7 +145,7 @@ public class TeslaInventoryBot {
             logger.error("Bot durdurulurken hata oluştu: {}", e.getMessage());
             // Durdurma sırasında hata olsa bile bildirim göndermeye çalış
             try {
-                pushoverNotifier.sendErrorNotification("Tesla Bot Durdurma Hatası",
+                telegramNotifier.sendErrorNotification("Tesla Bot Durdurma Hatası",
                         "⚠️ Bot durdurulurken hata oluştu: " + e.getMessage());
             } catch (Exception notificationError) {
                 logger.error("Durdurma hatası bildirimi gönderilemedi: {}", notificationError.getMessage());
@@ -197,6 +197,59 @@ public class TeslaInventoryBot {
         return String.format(
                 "https://www.tesla.com/%s/my/order/%s?titleStatus=new&redirect=no#overview",
                 locale, vin);
+    }
+
+    private String buildCarDetailsMessage(JsonNode car, int carIndex, int totalCars) {
+        StringBuilder message = new StringBuilder();
+
+        // Temel bilgiler
+        String vin = car.path("VIN").asText("");
+        String model = car.path("Model").asText("");
+        String trimName = car.path("TrimName").asText("");
+        String year = car.path("Year").asText("");
+        String price = car.path("Price").asText("");
+        String currency = car.path("CurrencyCode").asText("");
+
+        // Başlık
+        message.append(String.format("%s %s %s\n", year, model, trimName));
+
+        // Fiyat bilgisi
+        if (price != null && !price.isEmpty()) {
+            message.append(String.format("Fiyat: %s %s\n", price, currency));
+        }
+
+        // VIN
+        if (vin != null && !vin.isEmpty()) {
+            message.append(String.format("VIN: %s\n", vin));
+        }
+
+        // Renk
+        JsonNode paint = car.path("PAINT");
+        if (paint.isArray() && paint.size() > 0) {
+            String paintColor = paint.get(0).asText();
+            if (paintColor != null && !paintColor.isEmpty()) {
+                message.append(String.format("Renk: %s\n", paintColor));
+            }
+        }
+
+        // İç mekan
+        JsonNode interior = car.path("INTERIOR");
+        if (interior.isArray() && interior.size() > 0) {
+            String interiorColor = interior.get(0).asText();
+            if (interiorColor != null && !interiorColor.isEmpty()) {
+                message.append(String.format("İç Mekan: %s\n", interiorColor));
+            }
+        }
+
+        // Tesla link
+        if (vin != null && !vin.isEmpty()) {
+            String carLink = buildTeslaCarLink(vin);
+            message.append(String.format("\nTesla'da Görüntüle: %s", carLink));
+        }
+
+        logger.info("Araç detayları oluşturuldu: VIN={}, Model={}, Fiyat={}", vin, model, price);
+
+        return message.toString();
     }
 
     private void checkInventory() {
@@ -252,30 +305,20 @@ public class TeslaInventoryBot {
                     message.append(String.format("🎉 Tesla envanterinde %d yeni araç bulundu!\n", newCars));
                     message.append(String.format("Toplam: %d araç\n\n", totalMatches));
 
-                    // Yeni araçların VIN linklerini ekle
+                    // Yeni araçların detaylarını tek tek gönder
                     if (results.isArray() && results.size() > 0) {
-                        int totalCars = results.size();
-                        int groupSize = 5;
-                        int groupCount = (int) Math.ceil((double) totalCars / groupSize);
-                        for (int group = 0; group < groupCount; group++) {
-                            StringBuilder groupMessage = new StringBuilder();
-                            groupMessage
-                                    .append(String.format("🔗 Yeni Araç Linkleri (%d/%d):\n", group + 1, groupCount));
-                            int start = group * groupSize;
-                            int end = Math.min(start + groupSize, totalCars);
-                            for (int i = start; i < end; i++) {
-                                JsonNode car = results.get(i);
-                                String vin = car.path("VIN").asText();
-                                if (vin != null && !vin.isEmpty()) {
-                                    String carLink = buildTeslaCarLink(vin);
-                                    groupMessage.append(String.format("%d. %s\n", i + 1, carLink));
-                                }
-                            }
-                            pushoverNotifier.sendNotification("Tesla Envanter Güncellemesi", groupMessage.toString());
+                        logger.info("{} yeni araç bulundu, detaylı mesajlar gönderiliyor...", results.size());
+                        for (int i = 0; i < results.size(); i++) {
+                            JsonNode car = results.get(i);
+                            String carDetails = buildCarDetailsMessage(car, i + 1, results.size());
+                            logger.info("Araç {} için mesaj gönderiliyor...", i + 1);
+                            telegramNotifier.sendInventoryUpdate("🚗 Yeni Tesla Araç", carDetails);
                         }
+                    } else {
+                        logger.warn("Results array boş veya null: {}", results);
                     }
 
-                    pushoverNotifier.sendNotification("Tesla Envanter Güncellemesi", message.toString());
+                    telegramNotifier.sendInventoryUpdate("Tesla Envanter Güncellemesi", message.toString());
                     logger.info("Yeni araç bildirimi gönderildi");
                 }
 
@@ -283,31 +326,17 @@ public class TeslaInventoryBot {
                 if (lastTotalMatches == 0 && totalMatches > 0) {
                     StringBuilder message = new StringBuilder();
                     message.append(String.format("📊 Tesla envanterinde %d araç bulundu\n\n", totalMatches));
+                    telegramNotifier.sendInventoryUpdate("Tesla Envanter Durumu", message.toString());
 
-                    // İlk 5 aracın VIN linklerini ekle
+                    // Araçların detaylarını tek tek gönder
                     if (results.isArray() && results.size() > 0) {
-                        int totalCars = results.size();
-                        int groupSize = 5;
-                        int groupCount = (int) Math.ceil((double) totalCars / groupSize);
-                        for (int group = 0; group < groupCount; group++) {
-                            StringBuilder groupMessage = new StringBuilder();
-                            groupMessage.append(String.format("🔗 Araç Linkleri (%d/%d):\n", group + 1, groupCount));
-                            int start = group * groupSize;
-                            int end = Math.min(start + groupSize, totalCars);
-                            for (int i = start; i < end; i++) {
-                                JsonNode car = results.get(i);
-                                String vin = car.path("VIN").asText();
-                                if (vin != null && !vin.isEmpty()) {
-                                    String carLink = buildTeslaCarLink(vin);
-                                    groupMessage.append(String.format("%d. %s\n", i + 1, carLink));
-                                }
-                            }
-                            pushoverNotifier.sendNotification("Tesla Envanter Durumu", groupMessage.toString());
+                        for (int i = 0; i < results.size(); i++) {
+                            JsonNode car = results.get(i);
+                            String carDetails = buildCarDetailsMessage(car, i + 1, results.size());
+                            telegramNotifier.sendInventoryUpdate("Araç", carDetails);
                         }
                     }
-
-                    pushoverNotifier.sendNotification("Tesla Envanter Durumu", message.toString());
-                    logger.info("İlk envanter durumu bildirimi gönderildi");
+                    logger.info("İlk başlatmada araç detayları gönderildi. Toplam: {}", results.size());
                 }
 
                 lastTotalMatches = totalMatches;
@@ -328,7 +357,7 @@ public class TeslaInventoryBot {
             // İlk hata
             isErrorState = true;
             lastErrorTime = LocalDateTime.now();
-            pushoverNotifier.sendNotification("Tesla Bot Hatası",
+            telegramNotifier.sendErrorNotification("Tesla Bot Hatası",
                     "❌ Tesla API'sine erişim hatası: " + errorMessage);
             logger.info("İlk hata bildirimi gönderildi");
         } else {
@@ -336,7 +365,7 @@ public class TeslaInventoryBot {
             if (lastErrorTime != null &&
                     LocalDateTime.now().minusMinutes(ERROR_NOTIFICATION_INTERVAL_MINUTES).isAfter(lastErrorTime)) {
 
-                pushoverNotifier.sendNotification("Tesla Bot Sürekli Hata",
+                telegramNotifier.sendErrorNotification("Tesla Bot Sürekli Hata",
                         "⚠️ Tesla API hatası 30 dakikadır devam ediyor: " + errorMessage);
                 lastErrorTime = LocalDateTime.now();
                 logger.info("Sürekli hata bildirimi gönderildi");

@@ -5,8 +5,8 @@ services:
     build: .
     container_name: tesla-inventory-bot
     environment:
-      - PUSHOVER_USER_KEY=${PUSHOVER_USER_KEY}
-      - PUSHOVER_APP_TOKEN=${PUSHOVER_APP_TOKEN}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
