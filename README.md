@@ -1,181 +1,232 @@
-# 🚗 Tesla Envanter Kontrol Botu
+# 🚗 Tesla Inventory Monitoring Bot
 
-Bu bot, Tesla'nın resmi envanter API'sini düzenli olarak kontrol eder ve yeni araç geldiğinde veya hata durumunda Pushover üzerinden bildirim gönderir.
+A real-time Tesla inventory monitoring bot that checks Tesla's official inventory API at regular intervals and sends notifications via Pushover when new vehicles are available or when errors occur.
 
-## ✨ Özellikler
+## ✨ Features
 
-- 🕐 **Her dakika otomatik kontrol** - Tesla envanterini sürekli izler
-- 📱 **Pushover bildirimleri** - Yeni araç ve hata durumlarında anında bildirim
-- 🔗 **VIN Linkleri** - Her araç için Tesla sipariş sayfası linki
-- 🌍 **Çoklu Market Desteği** - Farklı ülkeler için kolay konfigürasyon
-- ⚠️ **Akıllı hata yönetimi** - İlk hata ve 30 dakika sürekli hata bildirimleri
-- 🔄 **Otomatik yeniden deneme** - Bağlantı sorunlarında otomatik retry
-- 📊 **Detaylı loglama** - Tüm işlemler loglanır ve saklanır
-- 🛡️ **Graceful shutdown** - Güvenli kapatma desteği
-- 🐳 **Docker desteği** - Container ortamında çalıştırma
-- 🔧 **Kolay kurulum** - Tek komutla başlatma
+- 🕐 **Real-time monitoring** - Checks Tesla inventory every minute
+- 📱 **Pushover notifications** - Instant notifications for new vehicles and errors
+- 🔗 **VIN Links** - Direct links to Tesla order pages for each vehicle
+- 🌍 **Multi-market support** - Easy configuration for different countries
+- 🔄 **Proxy rotation** - Random proxy selection for each request
+- 📦 **Grouped notifications** - Sends all inventory items in groups of 5
+- ⚠️ **Smart error handling** - First error and 30-minute continuous error notifications
+- 🔄 **Automatic retry** - Automatic retry on connection issues
+- 📊 **Detailed logging** - All operations are logged and stored
+- 🛡️ **Graceful shutdown** - Safe shutdown support
+- 🐳 **Docker support** - Run in containerized environment
+- 🔧 **Easy setup** - Start with single command
 
-## 🚀 Hızlı Başlangıç
+## 🚀 Quick Start
 
-### Gereksinimler
+### Prerequisites
 
-- Java 11 veya üzeri
+- Java 11 or higher
 - Maven 3.6+
-- Pushover hesabı
+- Pushover account
+- `proxy-list.txt` file with proxy servers
 
-### 1. Pushover Kurulumu
+### 1. Pushover Setup
 
-1. [Pushover](https://pushover.net/) sitesine gidin ve hesap oluşturun
-2. Bir uygulama oluşturun ve API token alın
-3. User key'inizi not edin
+1. Go to [Pushover](https://pushover.net/) and create an account
+2. Create an application and get API token
+3. Note your user key
 
-### 2. Environment Variables
+### 2. Proxy List Setup
+
+Create a `proxy-list.txt` file in the project root with proxy servers (one per line):
+
+```
+154.213.198.89:3129
+154.213.203.129:3129
+156.233.85.174:3129
+...
+```
+
+### 3. Environment Variables
 
 ```bash
-# Zorunlu - Pushover bildirimleri için
+# Required - Pushover notifications
 export PUSHOVER_USER_KEY="your_user_key_here"
 export PUSHOVER_APP_TOKEN="your_app_token_here"
 
-# Opsiyonel - Tesla market ayarları (varsayılan: DE/de)
-export TESLA_MARKET="DE"      # Ülke kodu (DE, TR, US, CA, vb.)
-export TESLA_LANGUAGE="de"    # Dil kodu (de, tr, en, vb.)
+# Optional - Tesla market settings (default: DE/de)
+export TESLA_MARKET="DE"      # Country code (DE, TR, US, CA, etc.)
+export TESLA_LANGUAGE="de"    # Language code (de, tr, en, etc.)
 ```
 
-### 3. Botu Başlatma
+### 4. Start the Bot
 
 ```bash
-# Projeyi derle
+# Build the project
 mvn clean package
 
-# Botu çalıştır
+# Run the bot
 java -jar target/tesla-inventory-bot-1.0.0.jar
 ```
 
-**Veya otomatik başlatma scripti kullanın:**
+**Or use the automatic startup script:**
 
 ```bash
 chmod +x start.sh
 ./start.sh
 ```
 
-## 📋 Kullanım
+## 📋 Usage
 
-### Normal Çalışma
+### Normal Operation
 
-Bot başlatıldığında:
+When the bot starts:
 
-1. İlk olarak Tesla envanterini kontrol eder
-2. Her dakika düzenli kontrol yapar
-3. Yeni araç geldiğinde bildirim gönderir (VIN linkleri ile)
-4. API hatalarında bildirim gönderir
-5. 30 dakika sürekli hata durumunda tekrar bildirim gönderir
+1. First checks Tesla inventory
+2. Performs regular checks every minute
+3. Sends notifications when new vehicles arrive (with VIN links)
+4. Sends notifications on API errors
+5. Sends repeat notifications after 30 minutes of continuous errors
+6. Uses random proxy for each request
+7. Groups all inventory items in batches of 5 for notifications
 
-### Bildirim Türleri
+### Notification Types
 
-#### 🎉 Yeni Araç Bildirimi (VIN Linkleri ile)
-
-```
-🎉 Tesla envanterinde 3 yeni araç bulundu!
-Toplam: 15 araç
-
-🔗 Yeni Araç Linkleri:
-1. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123456?titleStatus=new&redirect=no#overview
-2. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123457?titleStatus=new&redirect=no#overview
-3. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123458?titleStatus=new&redirect=no#overview
-... ve 2 araç daha
-```
-
-#### 📊 İlk Envanter Durumu
+#### 🎉 New Vehicle Notification (with VIN Links)
 
 ```
-📊 Tesla envanterinde 272 araç bulundu
+🎉 3 new vehicles found in Tesla inventory!
+Total: 15 vehicles
 
-🔗 Araç Linkleri:
+🔗 New Vehicle Links (1/3):
 1. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123456?titleStatus=new&redirect=no#overview
 2. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123457?titleStatus=new&redirect=no#overview
 3. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123458?titleStatus=new&redirect=no#overview
 4. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123459?titleStatus=new&redirect=no#overview
 5. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123460?titleStatus=new&redirect=no#overview
-... ve 19 araç daha
+
+🔗 New Vehicle Links (2/3):
+6. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123461?titleStatus=new&redirect=no#overview
+7. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123462?titleStatus=new&redirect=no#overview
+8. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123463?titleStatus=new&redirect=no#overview
+9. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123464?titleStatus=new&redirect=no#overview
+10. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123465?titleStatus=new&redirect=no#overview
+
+🔗 New Vehicle Links (3/3):
+11. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123466?titleStatus=new&redirect=no#overview
+12. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123467?titleStatus=new&redirect=no#overview
+13. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123468?titleStatus=new&redirect=no#overview
 ```
 
-#### ❌ İlk Hata Bildirimi
+#### 📊 Initial Inventory Status
 
 ```
-❌ Tesla API'sine erişim hatası: timeout
+📊 272 vehicles found in Tesla inventory
+
+🔗 Vehicle Links (1/55):
+1. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123456?titleStatus=new&redirect=no#overview
+2. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123457?titleStatus=new&redirect=no#overview
+3. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123458?titleStatus=new&redirect=no#overview
+4. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123459?titleStatus=new&redirect=no#overview
+5. https://www.tesla.com/de_DE/my/order/5YJSA1E47JF123460?titleStatus=new&redirect=no#overview
 ```
 
-#### ⚠️ Sürekli Hata Bildirimi
+#### ❌ First Error Notification
 
 ```
-⚠️ Tesla API hatası 30 dakikadır devam ediyor: timeout
+❌ Tesla API access error: timeout
 ```
 
-### Loglar
+#### ⚠️ Continuous Error Notification
 
-Bot logları `logs/tesla-bot.log` dosyasında saklanır:
+```
+⚠️ Tesla API error continues for 30 minutes: timeout
+```
+
+### Logs
+
+Bot logs are stored in `logs/tesla-bot.log`:
 
 ```bash
-# Canlı log takibi
+# Live log tracking
 tail -f logs/tesla-bot.log
 
-# Son 50 satır
+# Last 50 lines
 tail -50 logs/tesla-bot.log
 ```
 
-## 🌍 Market Konfigürasyonu
+## 🌍 Market Configuration
 
-### Desteklenen Marketler
+### Supported Markets
 
-| Ülke      | Market | Language | Super Region  |
-| --------- | ------ | -------- | ------------- |
-| Almanya   | `DE`   | `de`     | europe        |
-| Türkiye   | `TR`   | `tr`     | europe        |
-| ABD       | `US`   | `en`     | north america |
-| Kanada    | `CA`   | `en`     | north america |
-| İngiltere | `GB`   | `en`     | europe        |
-| Fransa    | `FR`   | `fr`     | europe        |
-| İtalya    | `IT`   | `it`     | europe        |
-| İspanya   | `ES`   | `es`     | europe        |
+| Country | Market | Language | Super Region  |
+| ------- | ------ | -------- | ------------- |
+| Germany | `DE`   | `de`     | europe        |
+| Turkey  | `TR`   | `tr`     | europe        |
+| USA     | `US`   | `en`     | north america |
+| Canada  | `CA`   | `en`     | north america |
+| UK      | `GB`   | `en`     | europe        |
+| France  | `FR`   | `fr`     | europe        |
+| Italy   | `IT`   | `it`     | europe        |
+| Spain   | `ES`   | `es`     | europe        |
 
-### Market Değiştirme Örnekleri
+### Market Change Examples
 
 ```bash
-# Türkiye için
+# For Turkey
 export TESLA_MARKET="TR" && export TESLA_LANGUAGE="tr"
 
-# ABD için
+# For USA
 export TESLA_MARKET="US" && export TESLA_LANGUAGE="en"
 
-# İngiltere için
+# For UK
 export TESLA_MARKET="GB" && export TESLA_LANGUAGE="en"
 ```
 
-## 🐳 Docker ile Çalıştırma
+## 🐳 Docker Usage
 
-### Docker Compose (Önerilen)
+### Docker Hub Image
 
 ```bash
-# Environment variables ayarla
-export PUSHOVER_USER_KEY="your_user_key"
-export PUSHOVER_APP_TOKEN="your_app_token"
-export TESLA_MARKET="DE"
-export TESLA_LANGUAGE="de"
+# Pull and run from Docker Hub
+docker run -d \
+  --name tesla-bot \
+  -e PUSHOVER_USER_KEY="your_user_key" \
+  -e PUSHOVER_APP_TOKEN="your_app_token" \
+  -e TESLA_MARKET="TR" \
+  -e TESLA_LANGUAGE="tr" \
+  aydinozturk/tesla-inventory-bot:latest
+```
 
-# Botu başlat
+### Docker Compose (Recommended)
+
+```yaml
+version: "3.8"
+services:
+  tesla-bot:
+    image: aydinozturk/tesla-inventory-bot:latest
+    container_name: tesla-inventory-bot
+    environment:
+      - PUSHOVER_USER_KEY=your_user_key
+      - PUSHOVER_APP_TOKEN=your_app_token
+      - TESLA_MARKET=TR
+      - TESLA_LANGUAGE=tr
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+```
+
+```bash
+# Start with docker-compose
 docker-compose up -d
 
-# Logları takip et
+# Follow logs
 docker-compose logs -f tesla-bot
 ```
 
-### Manuel Docker
+### Manual Docker Build
 
 ```bash
-# Image oluştur
+# Build image
 docker build -t tesla-inventory-bot .
 
-# Container çalıştır
+# Run container
 docker run -d \
   --name tesla-bot \
   -e PUSHOVER_USER_KEY="your_user_key" \
@@ -186,107 +237,117 @@ docker run -d \
   tesla-inventory-bot
 ```
 
-## ⚙️ Konfigürasyon
+## ⚙️ Configuration
 
 ### Environment Variables
 
-| Değişken             | Açıklama           | Zorunlu | Varsayılan |
-| -------------------- | ------------------ | ------- | ---------- |
-| `PUSHOVER_USER_KEY`  | Pushover user key  | ✅      | -          |
-| `PUSHOVER_APP_TOKEN` | Pushover app token | ✅      | -          |
-| `TESLA_MARKET`       | Tesla market kodu  | ❌      | `DE`       |
-| `TESLA_LANGUAGE`     | Tesla dil kodu     | ❌      | `de`       |
+| Variable             | Description         | Required | Default |
+| -------------------- | ------------------- | -------- | ------- |
+| `PUSHOVER_USER_KEY`  | Pushover user key   | ✅       | -       |
+| `PUSHOVER_APP_TOKEN` | Pushover app token  | ✅       | -       |
+| `TESLA_MARKET`       | Tesla market code   | ❌       | `DE`    |
+| `TESLA_LANGUAGE`     | Tesla language code | ❌       | `de`    |
 
-### Teknik Detaylar
+### Proxy Configuration
 
-- **Kontrol Sıklığı**: Her dakika
-- **Hata Bildirim Aralığı**: 30 dakika
-- **HTTP Timeout**: 60 saniye
-- **Log Seviyesi**: INFO
-- **Log Rotasyonu**: Günlük
-- **Log Saklama**: 30 gün
-- **Maksimum Araç Gösterimi**: 5 araç (VIN linkleri ile)
-- **URL Encoding**: Otomatik
+The bot automatically uses proxies from `proxy-list.txt` file:
 
-## 🔧 Sorun Giderme
+- Each request uses a random proxy from the list
+- If no proxies are available, requests are made directly
+- Proxy format: `IP:PORT` (one per line)
 
-### Yaygın Sorunlar
+Example `proxy-list.txt`:
 
-#### 1. Pushover Bildirimi Gelmiyor
+```
+154.213.198.89:3129
+154.213.203.129:3129
+156.233.85.174:3129
+```
+
+## 🔧 Technical Details
+
+### API Endpoints
+
+- **Tesla Inventory API**: `https://www.tesla.com/coinorder/api/v4/inventory-results`
+- **Pushover API**: `https://api.pushover.net/1/messages.json`
+
+### Request Headers
+
+```http
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
+Accept: application/json
+```
+
+### Response Format
+
+Tesla API returns JSON with vehicle inventory data including VIN numbers, which are used to generate direct order links.
+
+## 🚀 Development
+
+### Building from Source
 
 ```bash
-# Environment variables kontrol et
-echo $PUSHOVER_USER_KEY
-echo $PUSHOVER_APP_TOKEN
+# Clone repository
+git clone https://github.com/aydinozturk/tesla-bot.git
+cd tesla-bot
+
+# Build with Maven
+mvn clean package
+
+# Run tests
+mvn test
 ```
 
-#### 2. Tesla API Bağlantı Hatası
-
-- Ağ bağlantınızı kontrol edin
-- Firewall ayarlarını kontrol edin
-- VPN kullanıyorsanız kapatıp deneyin
-- Market ve language ayarlarını kontrol edin
-
-#### 3. Bot Başlamıyor
-
-```bash
-# Java sürümünü kontrol et
-java -version
-
-# Maven sürümünü kontrol et
-mvn -version
-
-# Environment variables kontrol et
-env | grep -E "(PUSHOVER|TESLA)"
-```
-
-#### 4. VIN Linkleri Çalışmıyor
-
-- Market ayarının doğru olduğundan emin olun
-- Tesla'nın o market için envanter sunduğunu kontrol edin
-- API yanıtında VIN alanının bulunduğunu kontrol edin
-
-### Debug Modu
-
-Daha detaylı loglar için logback.xml dosyasını düzenleyin:
-
-```xml
-<root level="DEBUG">
-    <appender-ref ref="CONSOLE" />
-    <appender-ref ref="FILE" />
-</root>
-```
-
-## 📁 Proje Yapısı
+### Project Structure
 
 ```
 tesla-bot/
 ├── src/main/java/com/teslabot/
-│   ├── TeslaInventoryBot.java    # Ana bot sınıfı
-│   └── PushoverNotifier.java     # Bildirim servisi
+│   ├── TeslaInventoryBot.java    # Main bot logic
+│   └── PushoverNotifier.java     # Pushover notification service
 ├── src/main/resources/
-│   └── logback.xml              # Log konfigürasyonu
-├── logs/                        # Log dosyaları
-├── pom.xml                      # Maven konfigürasyonu
-├── start.sh                     # Başlatma scripti
-├── Dockerfile                   # Docker image
-├── docker-compose.yml           # Docker Compose
-└── README.md                    # Bu dosya
+│   └── logback.xml               # Logging configuration
+├── proxy-list.txt                # Proxy server list
+├── docker-compose.yml            # Docker Compose configuration
+├── Dockerfile                    # Docker image definition
+├── pom.xml                       # Maven dependencies
+└── start.sh                      # Startup script
 ```
 
-## 🔄 Güncellemeler
+## 📝 License
 
-### v1.1.0
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-- ✅ VIN linkleri eklendi
-- ✅ Çoklu market desteği (TESLA_MARKET, TESLA_LANGUAGE)
-- ✅ Otomatik super region belirleme
-- ✅ URL encoding iyileştirmesi
-- ✅ Daha detaylı bildirimler
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📞 Support
+
+If you encounter any issues or have questions:
+
+1. Check the logs in `logs/tesla-bot.log`
+2. Verify your environment variables are set correctly
+3. Ensure your `proxy-list.txt` file is properly formatted
+4. Open an issue on GitHub with detailed error information
+
+## 🔄 Changelog
 
 ### v1.0.0
 
-- ✅ Temel Tesla envanter kontrolü
-- ✅ Pushover bildirimleri
-- ✅ Hata yönetimi
-- ✅ Docker desteği
+- Initial release with basic inventory monitoring
+- Pushover notifications
+- Multi-market support
+- Docker support
+
+### v1.1.0
+
+- Added proxy rotation support
+- Dynamic URL generation for car links
+- Grouped notifications (5 items per message)
+- Notifications for both inventory increases and decreases
+- Improved error handling and logging
