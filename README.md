@@ -1,13 +1,21 @@
 # 🇹🇷 **Türkiye Tesla Envanter Takip Grubu**
 
-Türkiye'deki Tesla envanterini anlık takip etmek isteyenler için Telegram grubumuz açıldı!
+<table>
+<tr>
+<td width="30%">
+  <img src="image/t_me-teslaEnvanterTakipV2.jpg" alt="Tesla Envanter Takip Telegram QR" width="100%" />
+</td>
+<td>
 
-👉 **Gruba katılmak için:** [@teslaEnvanterTakipV2](https://t.me/teslaEnvanterTakipV2)
+Türkiye'deki Tesla envanterini anlık takip etmek isteyenler için Telegram grubumuz açıldı!<br><br>
 
-Aşağıdaki QR kodunu okutarak da doğrudan katılabilirsiniz:
+👉 <strong>Gruba katılmak için:</strong> <a href="https://t.me/teslaEnvanterTakipV2">@teslaEnvanterTakipV2</a><br><br>
 
-![Tesla Envanter Takip Telegram QR](image/t_me-teslaEnvanterTakipV2.jpg)
+Aşağıdaki QR kodunu okutarak da doğrudan katılabilirsiniz.
 
+</td>
+</tr>
+</table>
 ---
 
 # 🚗 Tesla Inventory Monitoring Bot
