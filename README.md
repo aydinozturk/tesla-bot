@@ -1,14 +1,26 @@
+# 🇹🇷 **Türkiye Tesla Envanter Takip Grubu**
+
+Türkiye'deki Tesla envanterini anlık takip etmek isteyenler için Telegram grubumuz açıldı!
+
+👉 **Gruba katılmak için:** [@teslaEnvanterTakipV2](https://t.me/teslaEnvanterTakipV2)
+
+Aşağıdaki QR kodunu okutarak da doğrudan katılabilirsiniz:
+
+![Tesla Envanter Takip Telegram QR](qr-teslaenvantertakipv2.png)
+
+---
+
 # 🚗 Tesla Inventory Monitoring Bot
 
 A real-time Tesla inventory monitoring bot that checks Tesla's official inventory API at regular intervals and sends notifications via Telegram when new vehicles are available or when errors occur.
 
 ## ✨ Features
 
-- 🕐 **Real-time monitoring** - Checks Tesla inventory every minute
+- 🕐 **Real-time monitoring** - Checks Tesla inventory every 10 seconds
 - 📱 **Telegram notifications** - Instant notifications for new vehicles and errors
 - 🔗 **VIN Links** - Direct links to Tesla order pages for each vehicle
 - 🌍 **Multi-market support** - Easy configuration for different countries
-- 🔄 **Proxy rotation** - Random proxy selection for each request
+- 🔄 **Sequential proxy rotation** - Uses proxies in order for each request
 - 📦 **Detailed notifications** - Sends detailed information for each vehicle individually
 - ⚠️ **Smart error handling** - First error and 30-minute continuous error notifications
 - 🔄 **Automatic retry** - Automatic retry on connection issues
@@ -16,6 +28,9 @@ A real-time Tesla inventory monitoring bot that checks Tesla's official inventor
 - 🛡️ **Graceful shutdown** - Safe shutdown support
 - 🐳 **Docker support** - Run in containerized environment
 - 🔧 **Easy setup** - Start with single command
+- 🆕 **Dual chat support** - Send new vehicles to separate chat ID
+- 🚫 **Duplicate prevention** - Prevents sending same VIN multiple times
+- 💾 **Persistent VIN storage** - Remembers sent VINs across restarts
 
 ## 🚀 Quick Start
 
@@ -51,6 +66,9 @@ Create a `proxy-list.txt` file in the project root with proxy servers (one per l
 export TELEGRAM_BOT_TOKEN="your_bot_token_here"
 export TELEGRAM_CHAT_ID="your_chat_id_here"
 
+# Optional - New vehicles chat ID (if not set, uses main chat ID)
+export TELEGRAM_NEW_CARS_CHAT_ID="your_new_cars_chat_id_here"
+
 # Optional - Tesla market settings (default: DE/de)
 export TESLA_MARKET="DE"      # Country code (DE, TR, US, CA, etc.)
 export TESLA_LANGUAGE="de"    # Language code (de, tr, en, etc.)
@@ -80,12 +98,14 @@ chmod +x start.sh
 When the bot starts:
 
 1. First checks Tesla inventory
-2. Performs regular checks every minute
+2. Performs regular checks every 10 seconds
 3. Sends notifications when new vehicles arrive (with VIN links)
 4. Sends notifications on API errors
 5. Sends repeat notifications after 30 minutes of continuous errors
-6. Uses random proxy for each request
+6. Uses proxies sequentially (one by one) for each request
 7. Sends detailed information for each vehicle individually
+8. Prevents duplicate VIN notifications
+9. Sends new vehicles to separate chat ID if configured
 
 ### Notification Types
 
@@ -227,18 +247,19 @@ docker run -d \
 
 ### Environment Variables
 
-| Variable             | Description         | Required | Default |
-| -------------------- | ------------------- | -------- | ------- |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token  | ✅       | -       |
-| `TELEGRAM_CHAT_ID`   | Telegram chat id    | ✅       | -       |
-| `TESLA_MARKET`       | Tesla market code   | ❌       | `DE`    |
-| `TESLA_LANGUAGE`     | Tesla language code | ❌       | `de`    |
+| Variable                    | Description          | Required | Default      |
+| --------------------------- | -------------------- | -------- | ------------ |
+| `TELEGRAM_BOT_TOKEN`        | Telegram bot token   | ✅       | -            |
+| `TELEGRAM_CHAT_ID`          | Telegram chat id     | ✅       | -            |
+| `TELEGRAM_NEW_CARS_CHAT_ID` | New vehicles chat id | ❌       | Main chat ID |
+| `TESLA_MARKET`              | Tesla market code    | ❌       | `DE`         |
+| `TESLA_LANGUAGE`            | Tesla language code  | ❌       | `de`         |
 
 ### Proxy Configuration
 
 The bot automatically uses proxies from `proxy-list.txt` file:
 
-- Each request uses a random proxy from the list
+- Each request uses the next proxy in sequence from the list
 - If no proxies are available, requests are made directly
 - Proxy format: `IP:PORT` (one per line)
 
@@ -249,6 +270,15 @@ Example `proxy-list.txt`:
 154.213.203.129:3129
 156.233.85.174:3129
 ```
+
+### VIN Duplicate Prevention
+
+The bot automatically prevents sending the same VIN multiple times:
+
+- All sent VINs are stored in `sent_vins.txt` file
+- VINs are remembered across bot restarts
+- Only new VINs trigger notifications
+- File is automatically updated when new vehicles are found
 
 ## 🔧 Technical Details
 

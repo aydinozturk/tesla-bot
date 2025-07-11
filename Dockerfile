@@ -1,5 +1,5 @@
 # Build stage
-FROM maven:3.9.6-eclipse-temurin-11 AS builder
+FROM --platform=linux/amd64 maven:3.9.6-eclipse-temurin-11 AS builder
 
 WORKDIR /build
 COPY pom.xml .
@@ -8,7 +8,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Runtime stage
-FROM eclipse-temurin:11-jre
+FROM --platform=linux/amd64 eclipse-temurin:11-jre
 
 LABEL maintainer="aydinozturk"
 LABEL description="Tesla Inventory Monitoring Bot"
@@ -28,6 +28,9 @@ COPY proxy-list.txt proxy-list.txt
 
 ENV TELEGRAM_BOT_TOKEN=""
 ENV TELEGRAM_CHAT_ID=""
+ENV TELEGRAM_NEW_CARS_CHAT_ID=""
+ENV TESLA_MARKET="DE"
+ENV TESLA_LANGUAGE="de"
 ENV JAVA_OPTS="-Xmx512m -Xms256m"
 
 USER root

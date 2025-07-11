@@ -12,17 +12,24 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class TeslaInventoryBot {
     private static final Logger logger = LoggerFactory.getLogger(TeslaInventoryBot.class);
@@ -40,13 +47,16 @@ public class TeslaInventoryBot {
     private static final int ERROR_NOTIFICATION_INTERVAL_MINUTES = 30;
 
     private List<String> proxyList = new ArrayList<>();
-    private final Random random = new Random();
+    private final AtomicInteger currentProxyIndex = new AtomicInteger(0); // Proxy sırayla kullanım için
+    private final Set<String> sentVins = new HashSet<>(); // Gönderilen VIN'leri takip etmek için
+    private static final String SENT_VINS_FILE = "sent_vins.txt"; // VIN'leri saklamak için dosya
 
     public TeslaInventoryBot() {
         this.objectMapper = new ObjectMapper();
         this.telegramNotifier = new TelegramNotifier();
         this.scheduler = Executors.newScheduledThreadPool(1);
         loadProxyList();
+        loadSentVins(); // Gönderilen VIN'leri yükle
         this.httpClient = null; // Artık kullanılmayacak, her istekte yeni client oluşturulacak
     }
 
@@ -59,18 +69,53 @@ public class TeslaInventoryBot {
                     proxyList.add(line);
                 }
             }
+            logger.info("{} adet proxy yüklendi", proxyList.size());
         } catch (Exception e) {
             logger.error("Proxy listesi yüklenemedi: {}", e.getMessage());
         }
     }
 
-    private Proxy getRandomProxy() {
+    private void loadSentVins() {
+        try {
+            if (Files.exists(Paths.get(SENT_VINS_FILE))) {
+                List<String> lines = Files.readAllLines(Paths.get(SENT_VINS_FILE));
+                for (String line : lines) {
+                    String vin = line.trim();
+                    if (!vin.isEmpty()) {
+                        sentVins.add(vin);
+                    }
+                }
+                logger.info("{} adet gönderilmiş VIN yüklendi", sentVins.size());
+            } else {
+                logger.info("Gönderilmiş VIN dosyası bulunamadı, yeni dosya oluşturulacak");
+            }
+        } catch (Exception e) {
+            logger.error("Gönderilmiş VIN'ler yüklenemedi: {}", e.getMessage());
+        }
+    }
+
+    private void saveSentVins() {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(SENT_VINS_FILE))) {
+            for (String vin : sentVins) {
+                writer.println(vin);
+            }
+            logger.info("{} adet VIN dosyaya kaydedildi", sentVins.size());
+        } catch (Exception e) {
+            logger.error("VIN'ler dosyaya kaydedilemedi: {}", e.getMessage());
+        }
+    }
+
+    private Proxy getNextProxy() {
         if (proxyList.isEmpty())
             return Proxy.NO_PROXY;
-        String proxyStr = proxyList.get(random.nextInt(proxyList.size()));
+
+        int index = currentProxyIndex.getAndIncrement() % proxyList.size();
+        String proxyStr = proxyList.get(index);
         String[] parts = proxyStr.split(":");
         String host = parts[0];
         int port = Integer.parseInt(parts[1]);
+
+        logger.debug("Proxy kullanılıyor: {} (index: {})", proxyStr, index);
         return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(host, port));
     }
 
@@ -123,6 +168,9 @@ public class TeslaInventoryBot {
         logger.info("Bot durduruluyor...");
 
         try {
+            // VIN'leri kaydet
+            saveSentVins();
+
             // Bot kapatma bildirimi gönder
             telegramNotifier.sendNotification("Tesla Bot Durduruldu",
                     "🛑 Tesla Envanter Bot durduruldu.");
@@ -257,7 +305,7 @@ public class TeslaInventoryBot {
             logger.info("Tesla envanter kontrol ediliyor...");
 
             String apiUrl = buildTeslaApiUrl();
-            Proxy proxy = getRandomProxy();
+            Proxy proxy = getNextProxy();
             OkHttpClient httpClient = buildHttpClientWithProxy(proxy);
             Request request = new Request.Builder()
                     .url(apiUrl)
@@ -310,9 +358,17 @@ public class TeslaInventoryBot {
                         logger.info("{} yeni araç bulundu, detaylı mesajlar gönderiliyor...", results.size());
                         for (int i = 0; i < results.size(); i++) {
                             JsonNode car = results.get(i);
-                            String carDetails = buildCarDetailsMessage(car, i + 1, results.size());
-                            logger.info("Araç {} için mesaj gönderiliyor...", i + 1);
-                            telegramNotifier.sendInventoryUpdate("🚗 Yeni Tesla Araç", carDetails);
+                            String vin = car.path("VIN").asText("");
+                            if (vin != null && !vin.isEmpty() && !sentVins.contains(vin)) {
+                                String carDetails = buildCarDetailsMessage(car, i + 1, results.size());
+                                logger.info("Araç {} için mesaj gönderiliyor...", i + 1);
+                                telegramNotifier.sendNewCarNotification("🚗 Yeni Tesla Araç", carDetails);
+                                sentVins.add(vin);
+                                saveSentVins(); // VIN'i kaydet
+                                logger.info("VIN {} gönderildi ve kaydedildi", vin);
+                            } else {
+                                logger.debug("Araç {} VIN ({}) zaten gönderildi veya VIN yok.", i + 1, vin);
+                            }
                         }
                     } else {
                         logger.warn("Results array boş veya null: {}", results);
@@ -332,8 +388,16 @@ public class TeslaInventoryBot {
                     if (results.isArray() && results.size() > 0) {
                         for (int i = 0; i < results.size(); i++) {
                             JsonNode car = results.get(i);
-                            String carDetails = buildCarDetailsMessage(car, i + 1, results.size());
-                            telegramNotifier.sendInventoryUpdate("Araç", carDetails);
+                            String vin = car.path("VIN").asText("");
+                            if (vin != null && !vin.isEmpty() && !sentVins.contains(vin)) {
+                                String carDetails = buildCarDetailsMessage(car, i + 1, results.size());
+                                telegramNotifier.sendNewCarNotification("🚗 Tesla Araç", carDetails);
+                                sentVins.add(vin);
+                                saveSentVins(); // VIN'i kaydet
+                                logger.info("İlk başlatmada VIN {} gönderildi ve kaydedildi", vin);
+                            } else {
+                                logger.debug("Araç {} VIN ({}) zaten gönderildi veya VIN yok.", i + 1, vin);
+                            }
                         }
                     }
                     logger.info("İlk başlatmada araç detayları gönderildi. Toplam: {}", results.size());

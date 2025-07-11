@@ -7,8 +7,12 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - TELEGRAM_NEW_CARS_CHAT_ID=${TELEGRAM_NEW_CARS_CHAT_ID}
+      - TESLA_MARKET=${TESLA_MARKET:-DE}
+      - TESLA_LANGUAGE=${TESLA_LANGUAGE:-de}
     volumes:
       - ./logs:/app/logs
+      - ./sent_vins.txt:/app/sent_vins.txt
     restart: unless-stopped
     logging:
       driver: "json-file"
