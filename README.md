@@ -6,7 +6,7 @@ Türkiye'deki Tesla envanterini anlık takip etmek isteyenler için Telegram gru
 
 Aşağıdaki QR kodunu okutarak da doğrudan katılabilirsiniz:
 
-![Tesla Envanter Takip Telegram QR](qr-teslaenvantertakipv2.png)
+![Tesla Envanter Takip Telegram QR](image/t_me-teslaEnvanterTakipV2.jpg)
 
 ---
 
