@@ -17,6 +17,7 @@ A real-time Tesla inventory monitoring bot that checks Tesla's official inventor
 ## ✨ Features
 
 - 🕐 **Real-time monitoring** - Checks Tesla inventory every 10 seconds
+- ⏰ **Active hours support** - Only works between specified hours (Istanbul time, e.g. 18:25-22:00)
 - 📱 **Telegram notifications** - Instant notifications for new vehicles and errors
 - 🔗 **VIN Links** - Direct links to Tesla order pages for each vehicle
 - 🌍 **Multi-market support** - Easy configuration for different countries
@@ -32,32 +33,7 @@ A real-time Tesla inventory monitoring bot that checks Tesla's official inventor
 - 🚫 **Duplicate prevention** - Prevents sending same VIN multiple times
 - 💾 **Persistent VIN storage** - Remembers sent VINs across restarts
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Java 11 or higher
-- Maven 3.6+
-- Telegram Bot Token
-- `proxy-list.txt` file with proxy servers
-
-### 1. Telegram Bot Setup
-
-1. Message [@BotFather](https://t.me/botfather) on Telegram
-2. Create a new bot with `/newbot` command
-3. Get your bot token
-4. Start a chat with your bot and get your chat ID
-
-### 2. Proxy List Setup
-
-Create a `proxy-list.txt` file in the project root with proxy servers (one per line):
-
-```
-154.213.198.89:3129
-154.213.203.129:3129
-156.233.85.174:3129
-...
-```
+---
 
 ### 3. Environment Variables
 
@@ -72,6 +48,10 @@ export TELEGRAM_NEW_CARS_CHAT_ID="your_new_cars_chat_id_here"
 # Optional - Tesla market settings (default: DE/de)
 export TESLA_MARKET="DE"      # Country code (DE, TR, US, CA, etc.)
 export TESLA_LANGUAGE="de"    # Language code (de, tr, en, etc.)
+
+# Optional - Bot active hours (Istanbul time, 24h format)
+export BOT_ACTIVE_START="18:25"
+export BOT_ACTIVE_END="22:00"
 ```
 
 ### 4. Start the Bot

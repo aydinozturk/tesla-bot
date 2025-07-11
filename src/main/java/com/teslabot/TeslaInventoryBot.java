@@ -20,6 +20,8 @@ import java.net.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -51,6 +53,10 @@ public class TeslaInventoryBot {
     private final Set<String> sentVins = new HashSet<>(); // Gönderilen VIN'leri takip etmek için
     private static final String SENT_VINS_FILE = "sent_vins.txt"; // VIN'leri saklamak için dosya
 
+    private final String botActiveStart;
+    private final String botActiveEnd;
+    private final ZoneId istanbulZone = ZoneId.of("Europe/Istanbul");
+
     public TeslaInventoryBot() {
         this.objectMapper = new ObjectMapper();
         this.telegramNotifier = new TelegramNotifier();
@@ -58,6 +64,8 @@ public class TeslaInventoryBot {
         loadProxyList();
         loadSentVins(); // Gönderilen VIN'leri yükle
         this.httpClient = null; // Artık kullanılmayacak, her istekte yeni client oluşturulacak
+        this.botActiveStart = System.getenv("BOT_ACTIVE_START");
+        this.botActiveEnd = System.getenv("BOT_ACTIVE_END");
     }
 
     private void loadProxyList() {
@@ -138,6 +146,26 @@ public class TeslaInventoryBot {
                     }
                 })
                 .build();
+    }
+
+    private boolean isWithinActiveHours() {
+        if (botActiveStart == null || botActiveEnd == null) {
+            return true; // Saat aralığı tanımlı değilse her zaman çalış
+        }
+        try {
+            LocalTime now = LocalTime.now(istanbulZone);
+            LocalTime start = LocalTime.parse(botActiveStart);
+            LocalTime end = LocalTime.parse(botActiveEnd);
+            if (start.isBefore(end)) {
+                return !now.isBefore(start) && !now.isAfter(end);
+            } else {
+                // Gece yarısı aralığı (örn: 22:00 - 06:00)
+                return !now.isBefore(start) || !now.isAfter(end);
+            }
+        } catch (Exception e) {
+            logger.warn("Çalışma saati kontrolünde hata: {}", e.getMessage());
+            return true;
+        }
     }
 
     public void start() {
@@ -301,6 +329,11 @@ public class TeslaInventoryBot {
     }
 
     private void checkInventory() {
+        if (!isWithinActiveHours()) {
+            logger.info("Bot şu an çalışma saatleri dışında. Kontrol atlandı. (Saat aralığı: {} - {})", botActiveStart,
+                    botActiveEnd);
+            return;
+        }
         try {
             logger.info("Tesla envanter kontrol ediliyor...");
 
