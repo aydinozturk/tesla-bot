@@ -344,6 +344,15 @@ public class TeslaInventoryBot {
                     .url(apiUrl)
                     .addHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
                     .addHeader("Accept", "application/json")
+                    .addHeader("Referer", "https://www.tesla.com/tr_tr/inventory/new/my")
+                    .addHeader("priority", "u=1, i")
+                    .addHeader("sec-ch-ua",
+                            "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"Google Chrome\";v=\"138\"")
+                    .addHeader("sec-ch-ua-mobile", "?0")
+                    .addHeader("sec-ch-ua-platform", "\"macOS\"")
+                    .addHeader("sec-fetch-dest", "empty")
+                    .addHeader("sec-fetch-mode", "cors")
+                    .addHeader("sec-fetch-site", "same-origin")
                     .build();
 
             try (Response response = httpClient.newCall(request).execute()) {
